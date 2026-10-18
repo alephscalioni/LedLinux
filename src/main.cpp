@@ -22,7 +22,9 @@ int main(int argc, char **argv) {
     textFont.setLetterSpacing(QFont::AbsoluteSpacing, 0.15);
     app.setFont(textFont);
     const bool checkSync=app.arguments().contains("--check-sync");
-    const QString serverName=checkSync?QString("aleph-led-control-check-%1").arg(QCoreApplication::applicationPid()):QString("aleph-led-control");
+    const int captureArg=app.arguments().indexOf("--screenshot");
+    const bool capture=captureArg>=0 && captureArg+1<app.arguments().size();
+    const QString serverName=(checkSync||capture)?QString("aleph-led-control-check-%1").arg(QCoreApplication::applicationPid()):QString("aleph-led-control");
     QString base=QDir::homePath()+"/.local/share/led-control";
     QLocalSocket existing; existing.connectToServer(serverName);
     if(existing.waitForConnected(250)) { existing.write("show"); existing.flush(); existing.waitForBytesWritten(250); return 0; }
@@ -31,6 +33,7 @@ int main(int argc, char **argv) {
     QSettings settings;
     QColor current(settings.value("color","#0000ff").toString());
     if(!current.isValid()) current=QColor("#0000ff");
+    const bool m87Enabled=settings.value("m87Enabled", false).toBool();
     QSystemTrayIcon tray(swatch(current));
     tray.setToolTip("Cores dos LEDs");
     QMenu menu;
@@ -48,11 +51,25 @@ int main(int argc, char **argv) {
     auto custom=new QPushButton("Escolher outra cor…"); layout->addWidget(custom);
     auto brightnessLabel=new QLabel("Brilho"); layout->addWidget(brightnessLabel);
     auto brightness=new QSlider(Qt::Horizontal); brightness->setRange(0,100); brightness->setValue(settings.value("brightness",100).toInt()); brightness->setAccessibleName("Brilho dos LEDs"); layout->addWidget(brightness);
+    auto effectRow=new QWidget; auto effectLayout=new QFormLayout(effectRow); effectLayout->setContentsMargins(0,0,0,0);
+    auto m87Mode=new QComboBox;
+    m87Mode->addItems({"Desligado", "Estático", "Acender ao tocar", "Apagar ao tocar", "Cintilação", "Queda", "Colorido", "Respiração", "Espectro", "Expansão", "Rolagem horizontal", "Rolagem vertical", "Rotação", "Explosão", "Lançamento", "Ondas", "Fluxo", "Pulsação", "Inclinação", "Travessia"});
+    m87Mode->setCurrentIndex(qBound(0,settings.value("m87Mode",1).toInt(),19));
+    m87Mode->setAccessibleName("Efeito RGB do teclado M87");
+    effectLayout->addRow("Efeito do M87",m87Mode); layout->addWidget(effectRow);effectRow->setVisible(m87Enabled);
     auto status=new QLabel; status->setWordWrap(true); status->setTextInteractionFlags(Qt::TextSelectableByMouse); layout->addWidget(status);
     auto details=new QToolButton; details->setText("Opções e dispositivos"); details->setCheckable(true); details->setToolButtonStyle(Qt::ToolButtonTextBesideIcon); details->setArrowType(Qt::RightArrow); layout->addWidget(details);
     auto advanced=new QWidget; auto advancedLayout=new QVBoxLayout(advanced); advancedLayout->setContentsMargins(0,0,0,0); advancedLayout->setSpacing(10); advanced->hide(); layout->addWidget(advanced);
     auto devices=new QLabel; devices->setWordWrap(true); advancedLayout->addWidget(devices);
     QObject::connect(details,&QToolButton::toggled,[&](bool checked){ advanced->setVisible(checked); details->setArrowType(checked?Qt::DownArrow:Qt::RightArrow); window.adjustSize(); });
+    auto m87Options=new QWidget; auto m87Form=new QFormLayout(m87Options);m87Form->setContentsMargins(0,0,0,0);
+    auto m87Speed=new QSpinBox;m87Speed->setRange(0,5);m87Speed->setValue(qBound(0,settings.value("m87Speed",3).toInt(),5));
+    m87Form->addRow("Velocidade M87",m87Speed);
+    auto m87Direction=new QComboBox;m87Direction->addItems({"Normal","Inverso"});m87Direction->setCurrentIndex(qBound(0,settings.value("m87Direction",0).toInt(),1));
+    m87Form->addRow("Sentido M87",m87Direction);
+    auto m87Rainbow=new QCheckBox("Multicolorido no M87");m87Rainbow->setChecked(settings.value("m87Rainbow",false).toBool());m87Form->addRow(m87Rainbow);
+    auto m87Note=new QLabel("Efeito apenas no teclado. Lateral e setinha continuam pelo controle físico.");m87Note->setWordWrap(true);m87Note->setMinimumHeight(m87Note->fontMetrics().boundingRect(QRect(0,0,290,1000),Qt::TextWordWrap,m87Note->text()).height()+4);m87Form->addRow(m87Note);
+    advancedLayout->addWidget(m87Options);m87Options->setVisible(m87Enabled);
     auto startup=new QCheckBox("Iniciar ao entrar na sessão");
     QString autostart=QDir::homePath()+"/.config/autostart/led-control.desktop";
     startup->setChecked(QFile::exists(autostart)); advancedLayout->addWidget(startup);
@@ -73,7 +90,8 @@ int main(int argc, char **argv) {
     QObject::connect(&keyboardTimeout,&QTimer::timeout,[&]{ keyboard.kill(); });
     QStringList confirmedNames;
     bool computerFailed=false;
-    const bool m87Enabled=settings.value("m87Enabled", false).toBool();
+    int runningMode=m87Mode->currentIndex(), runningSpeed=m87Speed->value(), runningDirection=m87Direction->currentIndex();
+    bool runningRainbow=m87Rainbow->isChecked();
     const QString m87Driver=settings.value("m87Driver").toString();
     const QString m87Connection=settings.value("m87Connection", "auto").toString();
     auto setStatus=[&](QString message){status->setText(message); statusAction->setText(message); tray.setToolTip("Cores dos LEDs\n"+message);};
@@ -91,6 +109,10 @@ int main(int argc, char **argv) {
             setStatus(message);
             tray.showMessage("Cores dos LEDs",message,QSystemTrayIcon::Warning);
         } else {
+            if(m87Enabled) {
+                settings.setValue("m87Mode",runningMode);settings.setValue("m87Speed",runningSpeed);
+                settings.setValue("m87Direction",runningDirection);settings.setValue("m87Rainbow",runningRainbow);
+            }
             current=running; settings.setValue("color",current.name()); settings.setValue("brightness",runningBrightness); settings.sync();
             tray.setIcon(swatch(QColor(current.red()*runningBrightness/100,current.green()*runningBrightness/100,current.blue()*runningBrightness/100)));
             setStatus(QString("%1 dispositivos com resposta confirmada; confira as luzes").arg(listed.size()));
@@ -112,6 +134,7 @@ int main(int argc, char **argv) {
     launch=[&]{
         if(busy || process.state()!=QProcess::NotRunning) { queued=true; return; }
         busy=true; queued=false; running=pending; runningBrightness=pendingBrightness;
+        runningMode=m87Mode->currentIndex();runningSpeed=m87Speed->value();runningDirection=m87Direction->currentIndex();runningRainbow=m87Rainbow->isChecked();
         QColor output(running.red()*runningBrightness/100,running.green()*runningBrightness/100,running.blue()*runningBrightness/100);
         QStringList args{"--noautoconnect"};
         for(auto name: {"Corsair Vengeance","Gigabyte GeForce","G502","ASUS TUF","Nollie 8CH"})
@@ -151,8 +174,11 @@ int main(int argc, char **argv) {
         confirmedNames=names; computerFailed=failed;
         if(!m87Enabled) { complete(QString()); return; }
         if(!QFileInfo(m87Driver).isFile()) { complete("controlador não instalado; confira m87Driver nas configurações."); return; }
-        setStatus("Aplicando a mesma cor ao M87…");
-        keyboard.start("/usr/bin/python3", {m87Driver, "--color", running.name(), "--brightness", QString::number(runningBrightness), "--connection", m87Connection, "--apply"});
+        setStatus("Aplicando efeito ao M87…");
+        QStringList keyboardArgs{m87Driver, "--color", running.name(), "--brightness", QString::number(runningBrightness), "--connection", m87Connection,
+                                 "--mode",QString::number(runningMode),"--speed",QString::number(runningSpeed),"--direction",QString::number(runningDirection),"--apply"};
+        if(runningRainbow) keyboardArgs<<"--rainbow";
+        keyboard.start("/usr/bin/python3", keyboardArgs);
         keyboardTimeout.start();
     });
     auto choose=[&](QColor color){ if(!color.isValid()) return; pending=color; updatePreview(); launch(); };
@@ -170,6 +196,16 @@ int main(int argc, char **argv) {
     QObject::connect(brightness,&QSlider::sliderReleased,launch);
     QTimer debounce; debounce.setSingleShot(true); debounce.setInterval(500);
     QObject::connect(brightness,&QSlider::valueChanged,[&]{debounce.start();}); QObject::connect(&debounce,&QTimer::timeout,launch);
+    auto updateEffectControls=[&]{
+        int mode=m87Mode->currentIndex();
+        m87Speed->setEnabled(mode>1);m87Rainbow->setEnabled(mode>0);
+        m87Direction->setEnabled(mode==10||mode==11||mode==12||mode==16||mode==18);
+    };
+    QObject::connect(m87Mode,qOverload<int>(&QComboBox::currentIndexChanged),[&]{updateEffectControls();launch();});
+    QObject::connect(m87Speed,qOverload<int>(&QSpinBox::valueChanged),[&]{debounce.start();});
+    QObject::connect(m87Direction,qOverload<int>(&QComboBox::currentIndexChanged),[&]{launch();});
+    QObject::connect(m87Rainbow,&QCheckBox::toggled,[&]{launch();});
+    updateEffectControls();
     QObject::connect(retry,&QPushButton::clicked,launch);
     menu.addSeparator();
     auto pick=menu.addAction("Escolher cor…"); QObject::connect(pick,&QAction::triggered,selectColor);
@@ -203,7 +239,11 @@ int main(int argc, char **argv) {
     tray.setContextMenu(&menu); tray.show();
     QObject::connect(&tray,&QSystemTrayIcon::activated,[&](QSystemTrayIcon::ActivationReason reason){if(reason==QSystemTrayIcon::Trigger) show();});
     QObject::connect(&server,&QLocalServer::newConnection,[&]{auto socket=server.nextPendingConnection(); if(socket){socket->deleteLater();show();}});
-    updatePreview(); QTimer::singleShot(1500,launch);
+    updatePreview();
+    if(capture) {
+        details->setChecked(true);window.adjustSize();window.show();
+        QTimer::singleShot(200,[&]{window.grab().save(app.arguments().at(captureArg+1));app.quit();});
+    } else QTimer::singleShot(1500,launch);
     if(app.arguments().contains("--show")) show();
     QObject::connect(&app,&QApplication::aboutToQuit,[&]{if(keyboard.state()!=QProcess::NotRunning){keyboard.kill();keyboard.waitForFinished(1000);}if(process.state()!=QProcess::NotRunning){process.terminate();if(!process.waitForFinished(2000)){process.kill();process.waitForFinished(1000);}}});
     return app.exec();

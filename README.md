@@ -65,3 +65,26 @@ cor como confirmada quando os dois controles têm sucesso.
 A cor estática por 2,4 GHz foi confirmada fisicamente no M87 desta máquina.
 A integração automática e os demais níveis de brilho ainda precisam de
 confirmação visual; resposta de protocolo não é leitura física dos LEDs.
+
+### Efeitos RGB do teclado
+
+O painel integrado agora oferece **Efeito do M87** com 19 efeitos e desligado.
+Em **Opções e dispositivos**, ajuste velocidade (0–5), sentido e multicolorido.
+Os efeitos são executados pelo teclado; a cor estática dos demais dispositivos
+continua sincronizada. As preferências `m87Mode`, `m87Speed`, `m87Direction` e
+`m87Rainbow` são salvas somente quando a operação completa tem sucesso.
+Edições durante uma aplicação são enfileiradas com os novos valores, sem misturar
+parâmetros da operação em andamento. Os LEDs lateral e seta permanecem físicos.
+
+Requer o adaptador M87 atualizado com `packaging/install-ledlinux.py` no projeto
+[attack-shark-m87-linux](https://github.com/alephscalioni/attack-shark-m87-linux)
+(repositório privado do proprietário). O configurador M87 permite salvar/exportar
+perfis completos com iluminação, conexão, mapa e macros e oferece 12 receitas RGB.
+Não há confirmação visual de todos os efeitos em todos os firmwares.
+
+Verificação com backends simulados, sem tocar no hardware:
+
+```sh
+cmake --build build
+/usr/bin/python3 -m unittest discover -s tests -v
+```

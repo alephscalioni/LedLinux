@@ -10,7 +10,7 @@ BINARY = Path(__file__).resolve().parents[1]/'build/led-control'
 NAMES = ['Corsair Vengeance RGB Pro DDR4']*2 + ['Gigabyte GeForce RTX 3060 Gaming OC', 'G502 LIGHTSPEED Wireless Gaming Mouse', 'ASUS TUF GAMING B550M-PLUS', 'Nollie 8CH']
 
 class SyncTests(unittest.TestCase):
-    def run_sync(self, enabled=True, fail=False):
+    def run_sync(self, enabled=True, fail=False, mode=1, speed=3, direction=0, rainbow=False):
         with tempfile.TemporaryDirectory() as directory:
             home=Path(directory)
             data=home/'.local/share/led-control'
@@ -34,7 +34,7 @@ pathlib.Path(__file__).with_name('args.json').write_text(json.dumps(sys.argv[1:]
 '''+("print('teclado indisponível'); sys.exit(1)" if fail else "print(json.dumps({'device_response_matched':True}))"))
             config=home/'.config/Aleph/led-control.conf'
             config.parent.mkdir(parents=True)
-            config.write_text(f'[General]\ncolor=#0000ff\nbrightness=30\nm87Enabled={str(enabled).lower()}\nm87Driver={driver}\nm87Connection=auto\n')
+            config.write_text(f'[General]\ncolor=#0000ff\nbrightness=30\nm87Enabled={str(enabled).lower()}\nm87Driver={driver}\nm87Connection=auto\nm87Mode={mode}\nm87Speed={speed}\nm87Direction={direction}\nm87Rainbow={str(rainbow).lower()}\n')
             runtime=home/'runtime';runtime.mkdir(mode=0o700)
             env=os.environ | {'HOME':str(home),'XDG_CONFIG_HOME':str(home/'.config'),'XDG_DATA_HOME':str(home/'.local/share'),'XDG_RUNTIME_DIR':str(runtime),'QT_QPA_PLATFORM':'offscreen'}
             completed=subprocess.run([str(BINARY),'--check-sync'],env=env,capture_output=True,timeout=15)
@@ -45,7 +45,7 @@ pathlib.Path(__file__).with_name('args.json').write_text(json.dumps(sys.argv[1:]
     def test_same_color_and_brightness_sent(self):
         result,args,log=self.run_sync()
         self.assertEqual(result.returncode,0,result.stderr.decode())
-        self.assertEqual(args,['--color','#0000ff','--brightness','30','--connection','auto','--apply'])
+        self.assertEqual(args,['--color','#0000ff','--brightness','30','--connection','auto','--mode','1','--speed','3','--direction','0','--apply'])
         self.assertIn('device_response_matched',log)
 
     def test_keyboard_failure_is_not_reported_as_success(self):
@@ -57,5 +57,13 @@ pathlib.Path(__file__).with_name('args.json').write_text(json.dumps(sys.argv[1:]
         result,args,log=self.run_sync(enabled=False)
         self.assertEqual(result.returncode,0,result.stderr.decode())
         self.assertIsNone(args)
+
+    def test_effect_speed_direction_and_rainbow_sent(self):
+        result,args,log=self.run_sync(mode=7,speed=5,direction=1,rainbow=True)
+        self.assertEqual(result.returncode,0,result.stderr.decode())
+        self.assertEqual(args[args.index('--mode')+1],'7')
+        self.assertEqual(args[args.index('--speed')+1],'5')
+        self.assertEqual(args[args.index('--direction')+1],'1')
+        self.assertIn('--rainbow',args)
 
 if __name__=='__main__': unittest.main()
