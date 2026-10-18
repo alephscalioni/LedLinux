@@ -1,0 +1,8 @@
+/build/
+*.log
+*.AppImage
+*.rpm
+*.zip
+vendor/
+.env
+.env.*
