@@ -1,0 +1,45 @@
+name: Publish v0.1.0 preview
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: release-v0.1.0
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container: fedora:44
+    steps:
+      - name: Install build tools
+        run: dnf install -y git gcc-c++ cmake make qt6-qtbase-devel pkgconf-pkg-config tar gzip python3 gh
+      - uses: actions/checkout@v4
+      - name: Compile application
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel 2
+          ldd build/led-control
+      - name: Package application
+        run: |
+          bash -n scripts/install.sh scripts/package.sh
+          bash scripts/package.sh
+          cd dist
+          sha256sum -c SHA256SUMS
+      - name: Publish downloadable preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          if gh release view v0.1.0 >/dev/null 2>&1; then
+            echo 'Release v0.1.0 already exists; preserving it.'
+            exit 0
+          fi
+          gh release create v0.1.0 dist/LedLinux-0.1.0-fedora44-x86_64.tar.gz dist/SHA256SUMS \
+            --target "$RELEASE_COMMIT" \
+            --title 'LedLinux 0.1.0 — Fedora 44 / KDE (prévia)' \
+            --notes-file docs/RELEASE_v0.1.0.md --prerelease

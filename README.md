@@ -27,7 +27,7 @@ cmake --build build
 
 O backend é o [OpenRGB](https://openrgb.org/), obtido separadamente. Esta publicação não inclui binários do OpenRGB, fontes SF Pro, regras de acesso pessoais ou configurações do computador.
 
-A versão atual procura o backend em `~/.local/share/led-control/vendor/squashfs-root/AppRun`. O código deve ser instalado em `~/.local/bin/led-control`; o início automático usa `~/.local/share/led-control/led-control.desktop`. O diretório de dados e o backend precisam ser preparados antes da execução. A documentação de instalação distribuível ainda está pendente.
+A versão atual procura o backend em `~/.local/share/led-control/vendor/squashfs-root/AppRun`. O código deve ser instalado em `~/.local/bin/led-control`; o início automático usa `~/.local/share/led-control/led-control.desktop`. O diretório de dados e o backend precisam ser preparados antes da execução. A release contém um instalador por usuário; veja `docs/LEIA-ME.txt` para os requisitos e a preparação do backend.
 
 ```sh
 ./build/led-control
@@ -38,3 +38,9 @@ O perfil confirma o estado resultante no software, não uma leitura independente
 ## Licença
 
 A licença para distribuição está aguardando escolha do autor.
+
+## Release
+
+O pacote binário da prévia 0.1.0 é destinado ao Fedora 44 x86_64 com KDE Plasma. O OpenRGB e as bibliotecas Qt são dependências externas. Acesse [Releases](https://github.com/alephscalioni/LedLinux/releases).
+
+Para gerar o pacote após compilar: `bash scripts/package.sh`.

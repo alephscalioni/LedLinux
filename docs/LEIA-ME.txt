@@ -1,0 +1,42 @@
+LedLinux 0.1.0 — prévia para Fedora 44 / KDE Plasma / x86_64
+
+Requisitos: Fedora 44 x86_64, bibliotecas Qt 6 Widgets/Network/GUI,
+Qt XCB/XWayland, python3 e OpenRGB 1.1+ (git8 ou compatível).
+O pacote contém o aplicativo LedLinux; não inclui o backend OpenRGB,
+fontes SF Pro nem as configurações pessoais de hardware.
+
+Instalação:
+1. Extraia o arquivo .tar.gz.
+2. Entre na pasta extraída e execute: ./install.sh
+3. Instale o OpenRGB separadamente pelo site https://openrgb.org/.
+   O instalador preserva o backend já instalado em:
+   ~/.local/share/led-control/vendor/squashfs-root/AppRun
+   Se openrgb estiver no PATH durante a instalação, cria um link para ele.
+   Se instalar o OpenRGB depois, execute ./install.sh novamente.
+4. Configure no OpenRGB o acesso ao hardware e o tamanho dos canais.
+5. Execute ~/.local/bin/led-control ou procure LedLinux no menu.
+
+O instalador não modifica configurações existentes do OpenRGB, permissões
+udev, cores ou início automático. A restauração da cor ocorre ao iniciar o app.
+O início automático pode ser ativado em Opções e dispositivos.
+
+IMPORTANTE SOBRE ESTA PRÉVIA
+A versão é um protótipo para uma configuração específica e valida seis
+controladores: dois Corsair Vengeance RGB Pro DDR4, Gigabyte RTX 3060 Gaming OC,
+Logitech G502 Lightspeed, ASUS TUF B550M-PLUS e Nollie8.
+Não é um controlador universal. Em outro hardware, será necessário adaptar
+os nomes e a validação em src/main.cpp e recompilar.
+O Nollie precisa de canais configurados antes de enviar cores; no computador
+testado são 126 endereços por canal e 120 no header ARGB da ASUS. Esses valores
+não detectam automaticamente quantos LEDs físicos estão conectados.
+
+Clique no ícone colorido na barra para abrir o popover. Escape, Pronto ou
+clicar fora fecha o painel. O menu do botão direito permite encerrar o app.
+A aparência usa SF Pro Text se disponível e a fonte substituta do sistema
+quando ausente. A fonte não é distribuída.
+
+Verificação de integridade, na pasta dos downloads:
+    sha256sum -c SHA256SUMS
+
+Código-fonte e histórico: https://github.com/alephscalioni/LedLinux
+Perfil validado pelo software não é uma leitura independente dos LEDs físicos.
