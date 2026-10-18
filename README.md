@@ -12,6 +12,8 @@ As ondas seguem a ordem lógica dos LEDs de cada dispositivo. Não há mapa de p
 
 ## Water cooler
 
+O seletor da telinha permite enviar temperatura da CPU, da GPU ou os sensores originais. A escolha persiste em `~/.config/rise-mode-aura-ice/display.json` e é aplicada no próximo ciclo do monitor. Somente campos de temperatura são substituídos; a seleção não muda o modo/unidade física do visor, e não implementa troca para porcentagem. Sensor indisponível interrompe o envio com erro, sem inventar leitura. Requer o driver da tela atualizado.
+
 O painel mostra temperaturas de CPU/GPU, uso de CPU/RAM e estado do serviço da tela Rise Mode Aura Ice, com controles para iniciar e pausar. Dados antigos deixam de aparecer como atuais. Requer a instalação separada do [driver da tela](https://github.com/alephscalioni/rise-mode-aura-ice-linux), privado do proprietário. O serviço atualiza a tela independentemente de o painel estar aberto. Esta integração não controla a bomba ou as ventoinhas.
 
 ## Instalação local

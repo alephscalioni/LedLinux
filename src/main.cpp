@@ -61,6 +61,13 @@ int main(int argc, char **argv) {
     globalEffect->setAccessibleName("Efeito em todos os LEDs");effectLayout->addRow("Todos os LEDs",globalEffect);layout->addWidget(effectRow);
     auto waterTitle=new QLabel("Water cooler · Aura Ice");QFont waterFont=waterTitle->font();waterFont.setWeight(QFont::DemiBold);waterTitle->setFont(waterFont);layout->addWidget(waterTitle);
     auto waterStats=new QLabel("Lendo temperaturas…");waterStats->setWordWrap(true);waterStats->setTextInteractionFlags(Qt::TextSelectableByMouse);layout->addWidget(waterStats);
+    const QString waterConfig=QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)+"/rise-mode-aura-ice/display.json";
+    auto waterSource=new QComboBox;waterSource->setAccessibleName("Temperatura enviada à telinha");
+    waterSource->addItem("Tela: sensores originais","original");waterSource->addItem("Tela: temperatura da CPU","cpu_temperature");waterSource->addItem("Tela: temperatura da GPU","gpu_temperature");
+    QFile waterConfigFile(waterConfig);if(waterConfigFile.open(QIODevice::ReadOnly)){int selected=waterSource->findData(QJsonDocument::fromJson(waterConfigFile.readAll()).object().value("temperature_source").toString());if(selected>=0)waterSource->setCurrentIndex(selected);}
+    waterSource->setToolTip("Escolhe a fonte dos campos de temperatura. Não altera o modo ou a unidade do visor.");layout->addWidget(waterSource);
+    int savedWaterIndex=waterSource->currentIndex();
+    auto waterSourceError=new QLabel;waterSourceError->setWordWrap(true);waterSourceError->hide();layout->addWidget(waterSourceError);
     auto status=new QLabel; status->setWordWrap(true); status->setTextInteractionFlags(Qt::TextSelectableByMouse); layout->addWidget(status);
     auto details=new QToolButton; details->setText("Opções e dispositivos"); details->setCheckable(true); details->setToolButtonStyle(Qt::ToolButtonTextBesideIcon); details->setArrowType(Qt::RightArrow); layout->addWidget(details);
     auto advanced=new QWidget;advanced->setObjectName("advancedOptions");advanced->setStyleSheet("QWidget#advancedOptions {background: #222732;}"); auto advancedLayout=new QVBoxLayout(advanced); advancedLayout->setContentsMargins(0,0,0,0); advancedLayout->setSpacing(10); auto advancedScroll=new QScrollArea;advancedScroll->setWidgetResizable(true);advancedScroll->setFrameShape(QFrame::NoFrame);advancedScroll->setWidget(advanced);advancedScroll->setMinimumHeight(190);advancedScroll->setMaximumHeight(240);advancedScroll->hide();layout->addWidget(advancedScroll);
@@ -183,7 +190,14 @@ int main(int argc, char **argv) {
         auto metrics=snapshot.value("metrics").toObject();
         auto metric=[&](QString key,QString unit){auto value=metrics.value(key);return value.isDouble()?QString::number(value.toInt())+unit:QString("—");};
         waterStats->setText("CPU "+metric("cpu_temperature"," °C")+" · GPU "+metric("gpu_temperature"," °C")+"\nUso CPU "+metric("cpu_usage","%")+" · RAM "+metric("memory_usage","%"));
-        waterState->setText(snapshot.value("status").toString()=="report_written"?"Telinha recebendo dados a cada 2 segundos.":"Falha ao enviar à telinha. Confira o monitor Rise Mode.");
+        waterState->setText(snapshot.value("status").toString()=="report_written"?"Telinha recebendo dados a cada 2 segundos.":"Falha na telinha: "+snapshot.value("error").toString("confira o monitor Rise Mode."));
+    });
+    QObject::connect(waterSource,qOverload<int>(&QComboBox::activated),[&](int){
+        QDir().mkpath(QFileInfo(waterConfig).absolutePath());QSaveFile file(waterConfig);
+        QByteArray data=QJsonDocument(QJsonObject{{"temperature_source",waterSource->currentData().toString()}}).toJson();
+        if(!file.open(QIODevice::WriteOnly)||file.write(data)!=data.size()||!file.commit()){waterSource->setCurrentIndex(savedWaterIndex);waterSourceError->setText("Não foi possível salvar a escolha da telinha. Tente novamente.");waterSourceError->show();return;}
+        savedWaterIndex=waterSource->currentIndex();waterSourceError->hide();
+        waterState->setText("Escolha salva. Aguarde a próxima atualização da telinha.");
     });
     QObject::connect(waterToggle,&QPushButton::clicked,[&]{waterToggle->setEnabled(false);waterControl.start("/usr/bin/systemctl",{"--user",waterActive?"stop":"start","rise-mode-display.service"});});
     QObject::connect(&waterControl,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),[&](int code,QProcess::ExitStatus){if(code!=0)waterState->setText("Não foi possível alterar a telinha. Tente novamente.");refreshWater();});
