@@ -12,7 +12,7 @@ As ondas seguem a ordem lógica dos LEDs de cada dispositivo. Não há mapa de p
 
 ## Water cooler
 
-O seletor da telinha permite enviar temperatura da CPU, da GPU ou os sensores originais. A escolha persiste em `~/.config/rise-mode-aura-ice/display.json` e é aplicada no próximo ciclo do monitor. Somente campos de temperatura são substituídos; a seleção não muda o modo/unidade física do visor, e não implementa troca para porcentagem. Sensor indisponível interrompe o envio com erro, sem inventar leitura. Requer o driver da tela atualizado.
+O seletor da telinha permite enviar temperatura da CPU, da GPU ou os sensores originais. A escolha persiste em `~/.config/rise-mode-aura-ice/display.json` e é aplicada no próximo ciclo do monitor. Somente campos de temperatura são substituídos; a seleção não muda o modo/unidade física do visor, e não altera o símbolo físico para porcentagem. Sensor indisponível interrompe o envio com erro, sem inventar leitura. Requer o driver da tela atualizado.
 
 O painel mostra temperaturas de CPU/GPU, uso de CPU/RAM e estado do serviço da tela Rise Mode Aura Ice, com controles para iniciar e pausar. Dados antigos deixam de aparecer como atuais. Requer a instalação separada do [driver da tela](https://github.com/alephscalioni/rise-mode-aura-ice-linux), privado do proprietário. O serviço atualiza a tela independentemente de o painel estar aberto. Esta integração não controla a bomba ou as ventoinhas.
 
@@ -44,3 +44,5 @@ A tela do water cooler acendeu com confirmação do proprietário; a precisão d
 O motor usa a [API openrgb-python](https://openrgb-python.readthedocs.io/en/latest/pages/api.html) e o [SDK OpenRGB](https://github.com/CalcProgrammer1/OpenRGB/blob/master/Documentation/OpenRGBSDK.md). OpenRGB, fontes e configurações pessoais não são redistribuídos. A licença de distribuição aguarda escolha do autor.
 
 Pacote local: `bash scripts/package.sh`. Releases antigas não incluem o motor de efeitos globais.
+
+Uso CPU e RAM também podem ser selecionados em modo experimental: roteiam o número de 0–100 aos campos de temperatura, mantendo o símbolo físico °C. O painel avisa que esse número representa uso, não temperatura; ainda não há comando para mudar o modo/unidade do firmware.

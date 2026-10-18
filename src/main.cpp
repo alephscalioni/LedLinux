@@ -62,10 +62,13 @@ int main(int argc, char **argv) {
     auto waterTitle=new QLabel("Water cooler · Aura Ice");QFont waterFont=waterTitle->font();waterFont.setWeight(QFont::DemiBold);waterTitle->setFont(waterFont);layout->addWidget(waterTitle);
     auto waterStats=new QLabel("Lendo temperaturas…");waterStats->setWordWrap(true);waterStats->setTextInteractionFlags(Qt::TextSelectableByMouse);layout->addWidget(waterStats);
     const QString waterConfig=QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)+"/rise-mode-aura-ice/display.json";
-    auto waterSource=new QComboBox;waterSource->setAccessibleName("Temperatura enviada à telinha");
-    waterSource->addItem("Tela: sensores originais","original");waterSource->addItem("Tela: temperatura da CPU","cpu_temperature");waterSource->addItem("Tela: temperatura da GPU","gpu_temperature");
+    auto waterSource=new QComboBox;waterSource->setAccessibleName("Indicador enviado à telinha");
+    waterSource->addItem("Tela: sensores originais","original");waterSource->addItem("Tela: temperatura da CPU","cpu_temperature");waterSource->addItem("Tela: temperatura da GPU","gpu_temperature");waterSource->addItem("Tela: uso CPU · teste (visor °C)","cpu_usage");waterSource->addItem("Tela: uso RAM · teste (visor °C)","memory_usage");
     QFile waterConfigFile(waterConfig);if(waterConfigFile.open(QIODevice::ReadOnly)){int selected=waterSource->findData(QJsonDocument::fromJson(waterConfigFile.readAll()).object().value("temperature_source").toString());if(selected>=0)waterSource->setCurrentIndex(selected);}
-    waterSource->setToolTip("Escolhe a fonte dos campos de temperatura. Não altera o modo ou a unidade do visor.");layout->addWidget(waterSource);
+    waterSource->setToolTip("Escolhe o número enviado ao visor. Uso CPU/RAM são testes de 0–100: o símbolo físico continua °C, não representa temperatura.");layout->addWidget(waterSource);
+    auto waterUnitNotice=new QLabel("Teste de uso: número de 0 a 100. O visor mantém °C; esse valor não é temperatura.");waterUnitNotice->setWordWrap(true);layout->addWidget(waterUnitNotice);
+    auto updateWaterUnitNotice=[&]{waterUnitNotice->setVisible(waterSource->currentData().toString().endsWith("usage"));};
+    QObject::connect(waterSource,qOverload<int>(&QComboBox::currentIndexChanged),[&](int){updateWaterUnitNotice();});updateWaterUnitNotice();
     int savedWaterIndex=waterSource->currentIndex();
     auto waterSourceError=new QLabel;waterSourceError->setWordWrap(true);waterSourceError->hide();layout->addWidget(waterSourceError);
     auto status=new QLabel; status->setWordWrap(true); status->setTextInteractionFlags(Qt::TextSelectableByMouse); layout->addWidget(status);
