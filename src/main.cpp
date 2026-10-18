@@ -11,7 +11,7 @@ static QIcon swatch(QColor color) {
 
 int main(int argc, char **argv) {
     // XWayland permits exact tray anchoring for this small Qt popup.
-    qputenv("QT_QPA_PLATFORM", "xcb");
+    if(qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) qputenv("QT_QPA_PLATFORM", "xcb");
     QApplication app(argc,argv);
     app.setApplicationName("led-control");
     app.setApplicationDisplayName("Cores dos LEDs");
@@ -21,11 +21,13 @@ int main(int argc, char **argv) {
     textFont.setWeight(QFont::Normal); textFont.setKerning(true);
     textFont.setLetterSpacing(QFont::AbsoluteSpacing, 0.15);
     app.setFont(textFont);
+    const bool checkSync=app.arguments().contains("--check-sync");
+    const QString serverName=checkSync?QString("aleph-led-control-check-%1").arg(QCoreApplication::applicationPid()):QString("aleph-led-control");
     QString base=QDir::homePath()+"/.local/share/led-control";
-    QLocalSocket existing; existing.connectToServer("aleph-led-control");
+    QLocalSocket existing; existing.connectToServer(serverName);
     if(existing.waitForConnected(250)) { existing.write("show"); existing.flush(); existing.waitForBytesWritten(250); return 0; }
-    QLocalServer::removeServer("aleph-led-control");
-    QLocalServer server; server.listen("aleph-led-control");
+    QLocalServer::removeServer(serverName);
+    QLocalServer server; server.listen(serverName);
     QSettings settings;
     QColor current(settings.value("color","#0000ff").toString());
     if(!current.isValid()) current=QColor("#0000ff");
@@ -65,13 +67,51 @@ int main(int argc, char **argv) {
     QTimer timeout; timeout.setSingleShot(true); timeout.setInterval(45000);
     QObject::connect(&timeout,&QTimer::timeout,[&]{ process.kill(); });
     QColor pending=current, running=current; int pendingBrightness=brightness->value(), runningBrightness=pendingBrightness;
-    bool queued=false;
+    bool queued=false, busy=false;
+    QProcess keyboard; keyboard.setProcessChannelMode(QProcess::MergedChannels);
+    QTimer keyboardTimeout; keyboardTimeout.setSingleShot(true); keyboardTimeout.setInterval(10000);
+    QObject::connect(&keyboardTimeout,&QTimer::timeout,[&]{ keyboard.kill(); });
+    QStringList confirmedNames;
+    bool computerFailed=false;
+    const bool m87Enabled=settings.value("m87Enabled", false).toBool();
+    const QString m87Driver=settings.value("m87Driver").toString();
+    const QString m87Connection=settings.value("m87Connection", "auto").toString();
     auto setStatus=[&](QString message){status->setText(message); statusAction->setText(message); tray.setToolTip("Cores dos LEDs\n"+message);};
     std::function<void()> launch;
     auto updatePreview=[&]{ preview->setIcon(swatch(pending)); preview->setText(pending.name().toUpper()+" · "+QString::number(pendingBrightness)+"%"); };
+    std::function<void(QString)> complete;
+    complete=[&](QString keyboardError){
+        busy=false;
+        QStringList listed=confirmedNames;
+        if(m87Enabled && keyboardError.isEmpty()) listed<<"ATTACK SHARK M87 (resposta recebida)";
+        devices->setText(listed.isEmpty()?"Nenhum dispositivo RGB confirmado.":"Dispositivos detectados:\n"+listed.join("\n"));
+        if(computerFailed || !keyboardError.isEmpty()) {
+            QString message=computerFailed?"OpenRGB: falha ao confirmar os LEDs do computador.":"LEDs do computador confirmados.";
+            if(!keyboardError.isEmpty()) message+=" M87: "+keyboardError;
+            setStatus(message);
+            tray.showMessage("Cores dos LEDs",message,QSystemTrayIcon::Warning);
+        } else {
+            current=running; settings.setValue("color",current.name()); settings.setValue("brightness",runningBrightness); settings.sync();
+            tray.setIcon(swatch(QColor(current.red()*runningBrightness/100,current.green()*runningBrightness/100,current.blue()*runningBrightness/100)));
+            setStatus(QString("%1 dispositivos com resposta confirmada; confira as luzes").arg(listed.size()));
+        }
+        if(checkSync) { app.exit(computerFailed || !keyboardError.isEmpty() ? 1 : 0); return; }
+        if(queued) QTimer::singleShot(0,launch);
+    };
+    QObject::connect(&keyboard,&QProcess::errorOccurred,[&](QProcess::ProcessError error){
+        if(error==QProcess::FailedToStart) { keyboardTimeout.stop(); complete("não foi possível abrir o controlador Python."); }
+    });
+    QObject::connect(&keyboard,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),[&](int code,QProcess::ExitStatus exit){
+        keyboardTimeout.stop();
+        const auto output=keyboard.readAll();
+        QFile log(base+"/last-m87-run.log"); if(log.open(QIODevice::WriteOnly)) log.write(output);
+        auto result=QJsonDocument::fromJson(output).object();
+        bool acknowledged=result.value("device_acknowledged").toBool() || result.value("device_response_matched").toBool();
+        complete(code==0 && exit==QProcess::NormalExit && acknowledged ? QString() : QString::fromUtf8(output).trimmed().left(500).prepend("falha na comunicação. "));
+    });
     launch=[&]{
-        if(process.state()!=QProcess::NotRunning) { queued=true; return; }
-        queued=false; running=pending; runningBrightness=pendingBrightness;
+        if(busy || process.state()!=QProcess::NotRunning) { queued=true; return; }
+        busy=true; queued=false; running=pending; runningBrightness=pendingBrightness;
         QColor output(running.red()*runningBrightness/100,running.green()*runningBrightness/100,running.blue()*runningBrightness/100);
         QStringList args{"--noautoconnect"};
         for(auto name: {"Corsair Vengeance","Gigabyte GeForce","G502","ASUS TUF","Nollie 8CH"})
@@ -82,7 +122,7 @@ int main(int argc, char **argv) {
         process.start(base+"/vendor/squashfs-root/AppRun",args); timeout.start();
     };
     QObject::connect(&process,&QProcess::errorOccurred,[&](QProcess::ProcessError error){
-        if(error==QProcess::FailedToStart) { timeout.stop(); setStatus("Não foi possível abrir o controle RGB. Veja o diagnóstico."); }
+        if(error==QProcess::FailedToStart) { timeout.stop(); computerFailed=true; confirmedNames.clear(); complete(m87Enabled?"não enviado porque o OpenRGB não iniciou.":QString()); }
     });
     QObject::connect(&process,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),[&](int code,QProcess::ExitStatus exitStatus){
         timeout.stop(); QString output=QString::fromUtf8(process.readAll());
@@ -106,12 +146,14 @@ int main(int argc, char **argv) {
         for(auto expected:{"Gigabyte GeForce RTX 3060 Gaming OC","G502 LIGHTSPEED Wireless Gaming Mouse","ASUS TUF GAMING B550M-PLUS","Nollie 8CH"})
             if(!names.contains(expected)) failed=true;
         if(names.count("Corsair Vengeance RGB Pro DDR4")!=2) failed=true;
-        devices->setText(names.isEmpty()?"Nenhum dispositivo RGB confirmado.":"Dispositivos detectados:\n"+names.join("\n"));
         QRegularExpression errors("error|failed|failure|cannot|could not|out of range|not found|wrong number",QRegularExpression::CaseInsensitiveOption);
         if(errors.match(output).hasMatch()) failed=true;
-        if(failed) { setStatus("Falha ao aplicar. Abra o diagnóstico e tente reaplicar."); tray.showMessage("Cores dos LEDs","Não foi possível confirmar a aplicação. Abra o controle para verificar.",QSystemTrayIcon::Warning); }
-        else { current=running; settings.setValue("color",current.name()); settings.setValue("brightness",runningBrightness); settings.sync(); tray.setIcon(swatch(QColor(current.red()*runningBrightness/100,current.green()*runningBrightness/100,current.blue()*runningBrightness/100))); setStatus(QString("%1 dispositivos sincronizados").arg(names.size())); }
-        if(queued) QTimer::singleShot(0,launch);
+        confirmedNames=names; computerFailed=failed;
+        if(!m87Enabled) { complete(QString()); return; }
+        if(!QFileInfo(m87Driver).isFile()) { complete("controlador não instalado; confira m87Driver nas configurações."); return; }
+        setStatus("Aplicando a mesma cor ao M87…");
+        keyboard.start("/usr/bin/python3", {m87Driver, "--color", running.name(), "--brightness", QString::number(runningBrightness), "--connection", m87Connection, "--apply"});
+        keyboardTimeout.start();
     });
     auto choose=[&](QColor color){ if(!color.isValid()) return; pending=color; updatePreview(); launch(); };
     const QList<QPair<QString,QString>> colors={{"Azul","#0000ff"},{"Ciano","#00c8ff"},{"Verde","#00ff00"},{"Amarelo","#ffcc00"},{"Vermelho","#ff0000"},{"Roxo","#8000ff"},{"Branco","#ffffff"},{"Apagar","#000000"}};
@@ -163,6 +205,6 @@ int main(int argc, char **argv) {
     QObject::connect(&server,&QLocalServer::newConnection,[&]{auto socket=server.nextPendingConnection(); if(socket){socket->deleteLater();show();}});
     updatePreview(); QTimer::singleShot(1500,launch);
     if(app.arguments().contains("--show")) show();
-    QObject::connect(&app,&QApplication::aboutToQuit,[&]{if(process.state()!=QProcess::NotRunning){process.terminate();if(!process.waitForFinished(2000)){process.kill();process.waitForFinished(1000);}}});
+    QObject::connect(&app,&QApplication::aboutToQuit,[&]{if(keyboard.state()!=QProcess::NotRunning){keyboard.kill();keyboard.waitForFinished(1000);}if(process.state()!=QProcess::NotRunning){process.terminate();if(!process.waitForFinished(2000)){process.kill();process.waitForFinished(1000);}}});
     return app.exec();
 }

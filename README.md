@@ -44,3 +44,24 @@ A licença para distribuição está aguardando escolha do autor.
 O pacote binário da prévia 0.1.0 é destinado ao Fedora 44 x86_64 com KDE Plasma. O OpenRGB e as bibliotecas Qt são dependências externas. Acesse [Releases](https://github.com/alephscalioni/LedLinux/releases).
 
 Para gerar o pacote após compilar: `bash scripts/package.sh`.
+
+## ATTACK SHARK M87 de Aleph
+
+Esta versão pode sincronizar também a iluminação estática do M87 pelo adaptador
+Python do projeto M87 Linux. Em `~/.config/Aleph/led-control.conf`, configure
+`m87Enabled=true`, `m87Driver=/caminho/para/ledlinux.py` e `m87Connection=auto`
+(ou `usb` / `wireless`). O instalador `packaging/install-ledlinux.py` do M87
+prepara o adaptador na pasta de dados do LedLinux e preserva a cor e o brilho.
+Reinicie o LedLinux após instalar. Sem essa configuração, o comportamento anterior é preservado.
+
+O M87 recebe a mesma cor RGB escalada pelo brilho de 0–100%, com brilho interno
+máximo. O transporte automático prefere o cabo USB e usa o receptor 2,4 GHz
+quando não há interface USB. Uma falha não dispara reenvio por outro transporte.
+O processo roda sem bloquear o painel, tem limite de tempo e escreve o resultado
+em `~/.local/share/led-control/last-m87-run.log`. Uma falha do M87 aparece
+separadamente do resultado dos LEDs do computador. O programa só salva a nova
+cor como confirmada quando os dois controles têm sucesso.
+
+A cor estática por 2,4 GHz foi confirmada fisicamente no M87 desta máquina.
+A integração automática e os demais níveis de brilho ainda precisam de
+confirmação visual; resposta de protocolo não é leitura física dos LEDs.
