@@ -1,8 +1,8 @@
-LedLinux 0.1.0 — prévia para Fedora 44 / KDE Plasma / x86_64
+LedLinux 0.2.0 — prévia para Fedora 44 / KDE Plasma / x86_64
 
 Requisitos: Fedora 44 x86_64, bibliotecas Qt 6 Widgets/Network/GUI,
-Qt XCB/XWayland, python3 e OpenRGB 1.1+ (git8 ou compatível).
-O pacote contém o aplicativo LedLinux; não inclui o backend OpenRGB,
+Qt XCB/XWayland, python3 com venv/pip e OpenRGB 1.1+ (git8 ou compatível).
+O pacote contém o aplicativo e o motor Python de efeitos; não inclui o backend OpenRGB,
 fontes SF Pro nem as configurações pessoais de hardware.
 
 Instalação:
@@ -25,7 +25,7 @@ A versão é um protótipo para uma configuração específica e valida seis
 controladores: dois Corsair Vengeance RGB Pro DDR4, Gigabyte RTX 3060 Gaming OC,
 Logitech G502 Lightspeed, ASUS TUF B550M-PLUS e Nollie8.
 Não é um controlador universal. Em outro hardware, será necessário adaptar
-os nomes e a validação em src/main.cpp e recompilar.
+os nomes e a validação em src/rgb_engine.py.
 O Nollie precisa de canais configurados antes de enviar cores; no computador
 testado são 126 endereços por canal e 120 no header ARGB da ASUS. Esses valores
 não detectam automaticamente quantos LEDs físicos estão conectados.
@@ -40,3 +40,7 @@ Verificação de integridade, na pasta dos downloads:
 
 Código-fonte e histórico: https://github.com/alephscalioni/LedLinux
 Perfil validado pelo software não é uma leitura independente dos LEDs físicos.
+
+Efeitos globais exigem o aplicativo aberto. O instalador baixa a dependência
+openrgb-python fixada em requirements.txt. Para M87 e tela Rise Mode, instale
+os drivers separados indicados no README.md. Sem mapa físico de regiões.

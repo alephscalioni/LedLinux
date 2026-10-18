@@ -9,7 +9,13 @@ if [[ ! -x "$bundle_dir/led-control" ]]; then
     exit 1
 fi
 mkdir -p "$bin_dir" "$data_dir" "$install_root/.local/share/applications"
-install -m 755 "$bundle_dir/led-control" "$bin_dir/led-control"
+if [[ "$install_root" != "$HOME" ]]; then
+    echo 'Instale no HOME do usuário que executará o aplicativo.' >&2
+    exit 1
+fi
+python3 "$bundle_dir/scripts/install-effects.py"
+install -m 755 "$bundle_dir/led-control" "$bin_dir/.led-control-new"
+mv -- "$bin_dir/.led-control-new" "$bin_dir/led-control"
 python3 - "$HOME" "$data_dir/led-control.desktop" <<'PY'
 from pathlib import Path
 import sys

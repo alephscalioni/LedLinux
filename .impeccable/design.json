@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-18T00:00:00Z",
+  "title": "Design System: Cores dos LEDs",
+  "extensions": {
+    "nativeDesktop": {
+      "toolkit": "Qt Widgets / C++",
+      "source": "src/main.cpp",
+      "reference": ".impeccable/review/global-and-display.png",
+      "width": "Current source: 390 logical Qt units; earlier references around 380 are historical, not a breakpoint.",
+      "controls": "Custom QFrame/QPushButton stylesheet alongside Qt-native combos, sliders, spinboxes, toolbuttons and scrollbars.",
+      "scrolling": "Whole-body scroll area and nested advanced scroll area; fit available screen height.",
+      "componentRendering": "Native Qt widgets are documented directly; no HTML/CSS replicas or fabricated color ramps.",
+      "hardwareValidation": "Application/status events and screenshots do not establish physical behavior of every light or effect."
+    },
+    "motion": [
+      {
+        "name": "control-debounce",
+        "value": "500ms",
+        "purpose": "Groups brightness and speed changes before applying; not a visual animation."
+      }
+    ]
+  },
+  "components": [],
+  "narrative": {
+    "northStar": "Controle de bandeja compacto",
+    "overview": "Popup Qt escuro de operação local, ancorado à bandeja do KDE. A composição preserva cores e brilho no início, efeito global e estado da telinha Rise Mode no corpo, opções avançadas recolhíveis e ações no rodapé. Este documento registra a interface existente em src/main.cpp e .impeccable/review/global-and-display.png, sem propor redesign.",
+    "keyCharacteristics": [
+      "Superfície escura compacta e cantos suaves.",
+      "Amostras de cor acompanhadas de valor hexadecimal e brilho.",
+      "Estado RGB e telemetria Rise Mode visíveis.",
+      "Opções avançadas com rolagem e controles Qt."
+    ],
+    "rules": [],
+    "dos": [
+      "Do preservar a hierarquia de cor, brilho, efeito global, telemetria e opções avançadas.",
+      "Do manter nomes acessíveis e tooltips nas amostras sem texto.",
+      "Do distinguir envio de efeito, falha de comunicação e conferência física das luzes.",
+      "Do manter rolagem e limites de altura para alcançar todos os controles."
+    ],
+    "donts": [
+      "Don’t transformar o popup em dashboard ou importar o tema do painel M87.",
+      "Don’t interpretar a amostra de cor como leitura física dos LEDs.",
+      "Don’t apresentar dados antigos da telinha como medições atuais.",
+      "Don’t tratar o evento de aplicação como validação visual de todos os efeitos."
+    ]
+  }
+}

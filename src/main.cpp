@@ -41,9 +41,12 @@ int main(int argc, char **argv) {
     auto statusAction=menu.addAction("Preparando iluminação…"); statusAction->setEnabled(false);
     menu.addSeparator();
     QFrame window(nullptr, Qt::Popup | Qt::FramelessWindowHint);
-    window.setObjectName("ledPopover"); window.setWindowTitle("Cores dos LEDs"); window.setFixedWidth(344);
-    window.setStyleSheet("QFrame#ledPopover {background: #222732; border: 1px solid #50596b; border-radius: 16px;} QLabel {color: #f3f5fa;} QPushButton {padding: 8px 6px; border-radius: 8px; background: #363e4e; color: #f3f5fa; border: none;} QPushButton:hover {background: #46536a;} QPushButton:focus {border: 1px solid #8bbcff;} QCheckBox {color: #d6dce7;}");
-    auto layout=new QVBoxLayout(&window); layout->setContentsMargins(20,20,20,20); layout->setSpacing(12);
+    window.setObjectName("ledPopover"); window.setWindowTitle("Cores dos LEDs"); window.setFixedWidth(390);
+    window.setStyleSheet("QFrame#ledPopover {background: #222732; border: 1px solid #50596b; border-radius: 16px;} QLabel {color: #f3f5fa;} QPushButton {padding: 8px 6px; border-radius: 8px; background: #363e4e; color: #f3f5fa; border: none;} QPushButton:hover {background: #46536a;} QPushButton:focus {border: 1px solid #8bbcff;} QCheckBox {color: #d6dce7;} QToolButton {color: #d6dce7; background: #222732; border: none; padding: 4px 0;} QScrollArea {background: #222732; border: none;} QScrollBar:vertical {background: #222732; width: 10px;} QScrollBar::handle:vertical {background: #50596b; min-height: 24px; border-radius: 4px;} QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {height: 0;} QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {background: none;}");
+    auto outerLayout=new QVBoxLayout(&window);outerLayout->setContentsMargins(0,0,0,0);
+    auto body=new QWidget;body->setObjectName("popoverBody");body->setStyleSheet("QWidget#popoverBody {background: #222732;}");
+    auto bodyScroll=new QScrollArea;bodyScroll->setWidgetResizable(true);bodyScroll->setFrameShape(QFrame::NoFrame);bodyScroll->setWidget(body);outerLayout->addWidget(bodyScroll);
+    auto layout=new QVBoxLayout(body); layout->setContentsMargins(20,20,20,20); layout->setSpacing(12);
     auto heading=new QLabel("Cores dos LEDs"); QFont f=heading->font(); f.setPixelSize(16); f.setWeight(QFont::DemiBold); f.setLetterSpacing(QFont::AbsoluteSpacing, 0.1); heading->setFont(f); layout->addWidget(heading);
     auto description=new QLabel("Iluminação sincronizada"); description->setWordWrap(true); layout->addWidget(description);
     auto preview=new QPushButton; preview->setMinimumHeight(38); layout->addWidget(preview);
@@ -52,23 +55,34 @@ int main(int argc, char **argv) {
     auto brightnessLabel=new QLabel("Brilho"); layout->addWidget(brightnessLabel);
     auto brightness=new QSlider(Qt::Horizontal); brightness->setRange(0,100); brightness->setValue(settings.value("brightness",100).toInt()); brightness->setAccessibleName("Brilho dos LEDs"); layout->addWidget(brightness);
     auto effectRow=new QWidget; auto effectLayout=new QFormLayout(effectRow); effectLayout->setContentsMargins(0,0,0,0);
-    auto m87Mode=new QComboBox;
-    m87Mode->addItems({"Desligado", "Estático", "Acender ao tocar", "Apagar ao tocar", "Cintilação", "Queda", "Colorido", "Respiração", "Espectro", "Expansão", "Rolagem horizontal", "Rolagem vertical", "Rotação", "Explosão", "Lançamento", "Ondas", "Fluxo", "Pulsação", "Inclinação", "Travessia"});
-    m87Mode->setCurrentIndex(qBound(0,settings.value("m87Mode",1).toInt(),19));
-    m87Mode->setAccessibleName("Efeito RGB do teclado M87");
-    effectLayout->addRow("Efeito do M87",m87Mode); layout->addWidget(effectRow);effectRow->setVisible(m87Enabled);
+    auto globalEffect=new QComboBox;
+    for(auto item:QList<QPair<QString,QString>>{{"Estático","static"},{"Respiração","breathing"},{"Ciclo de cores RGB","spectrum"},{"Onda RGB","wave"},{"Rastro","chase"},{"Transição de cores","color_shift"},{"Desligado","off"}}) globalEffect->addItem(item.first,item.second);
+    int globalIndex=globalEffect->findData(settings.value("globalEffect","breathing").toString());globalEffect->setCurrentIndex(globalIndex<0?1:globalIndex);
+    globalEffect->setAccessibleName("Efeito em todos os LEDs");effectLayout->addRow("Todos os LEDs",globalEffect);layout->addWidget(effectRow);
+    auto waterTitle=new QLabel("Water cooler · Aura Ice");QFont waterFont=waterTitle->font();waterFont.setWeight(QFont::DemiBold);waterTitle->setFont(waterFont);layout->addWidget(waterTitle);
+    auto waterStats=new QLabel("Lendo temperaturas…");waterStats->setWordWrap(true);waterStats->setTextInteractionFlags(Qt::TextSelectableByMouse);layout->addWidget(waterStats);
     auto status=new QLabel; status->setWordWrap(true); status->setTextInteractionFlags(Qt::TextSelectableByMouse); layout->addWidget(status);
     auto details=new QToolButton; details->setText("Opções e dispositivos"); details->setCheckable(true); details->setToolButtonStyle(Qt::ToolButtonTextBesideIcon); details->setArrowType(Qt::RightArrow); layout->addWidget(details);
-    auto advanced=new QWidget; auto advancedLayout=new QVBoxLayout(advanced); advancedLayout->setContentsMargins(0,0,0,0); advancedLayout->setSpacing(10); advanced->hide(); layout->addWidget(advanced);
+    auto advanced=new QWidget;advanced->setObjectName("advancedOptions");advanced->setStyleSheet("QWidget#advancedOptions {background: #222732;}"); auto advancedLayout=new QVBoxLayout(advanced); advancedLayout->setContentsMargins(0,0,0,0); advancedLayout->setSpacing(10); auto advancedScroll=new QScrollArea;advancedScroll->setWidgetResizable(true);advancedScroll->setFrameShape(QFrame::NoFrame);advancedScroll->setWidget(advanced);advancedScroll->setMinimumHeight(190);advancedScroll->setMaximumHeight(240);advancedScroll->hide();layout->addWidget(advancedScroll);
     auto devices=new QLabel; devices->setWordWrap(true); advancedLayout->addWidget(devices);
-    QObject::connect(details,&QToolButton::toggled,[&](bool checked){ advanced->setVisible(checked); details->setArrowType(checked?Qt::DownArrow:Qt::RightArrow); window.adjustSize(); });
-    auto m87Options=new QWidget; auto m87Form=new QFormLayout(m87Options);m87Form->setContentsMargins(0,0,0,0);
+    QObject::connect(details,&QToolButton::toggled,[&](bool checked){ advancedScroll->setVisible(checked); details->setArrowType(checked?Qt::DownArrow:Qt::RightArrow); window.adjustSize();
+        auto screen=window.screen();if(screen){auto area=screen->availableGeometry();window.setMaximumHeight(qMax(100,area.height()-16));window.resize(window.width(),qMin(body->sizeHint().height()+2,area.height()-16));window.move(qBound(area.left()+8,window.x(),qMax(area.left()+8,area.right()-window.width()-8)),qBound(area.top()+8,window.y(),qMax(area.top()+8,area.bottom()-window.height()-8)));}
+    });
+    auto globalSpeed=new QSlider(Qt::Horizontal);globalSpeed->setRange(0,100);globalSpeed->setValue(qBound(0,settings.value("globalSpeed",40).toInt(),100));globalSpeed->setAccessibleName("Velocidade global dos efeitos");
+    advancedLayout->addWidget(new QLabel("Velocidade global · lento a rápido"));advancedLayout->addWidget(globalSpeed);
+    auto waterState=new QLabel;waterState->setWordWrap(true);advancedLayout->addWidget(waterState);
+    auto waterToggle=new QPushButton("Iniciar telinha");advancedLayout->addWidget(waterToggle);
+    auto m87Independent=new QCheckBox("Efeito próprio no teclado");m87Independent->setChecked(settings.value("m87Independent",false).toBool());advancedLayout->addWidget(m87Independent);m87Independent->setVisible(m87Enabled);
+    auto m87Mode=new QComboBox;
+    m87Mode->addItems({"Desligado","Estático","Acender ao tocar","Apagar ao tocar","Cintilação","Queda","Colorido","Respiração","Espectro","Expansão","Rolagem horizontal","Rolagem vertical","Rotação","Explosão","Lançamento","Ondas","Fluxo","Pulsação","Inclinação","Travessia"});
+    m87Mode->setCurrentIndex(qBound(0,settings.value("m87Mode",1).toInt(),19));m87Mode->setAccessibleName("Efeito próprio do teclado M87");
+    auto m87Options=new QWidget; auto m87Form=new QFormLayout(m87Options);m87Form->setContentsMargins(0,0,0,0);m87Form->addRow("Efeito M87",m87Mode);
     auto m87Speed=new QSpinBox;m87Speed->setRange(0,5);m87Speed->setValue(qBound(0,settings.value("m87Speed",3).toInt(),5));
     m87Form->addRow("Velocidade M87",m87Speed);
     auto m87Direction=new QComboBox;m87Direction->addItems({"Normal","Inverso"});m87Direction->setCurrentIndex(qBound(0,settings.value("m87Direction",0).toInt(),1));
     m87Form->addRow("Sentido M87",m87Direction);
     auto m87Rainbow=new QCheckBox("Multicolorido no M87");m87Rainbow->setChecked(settings.value("m87Rainbow",false).toBool());m87Form->addRow(m87Rainbow);
-    auto m87Note=new QLabel("Efeito apenas no teclado. Lateral e setinha continuam pelo controle físico.");m87Note->setWordWrap(true);m87Note->setMinimumHeight(m87Note->fontMetrics().boundingRect(QRect(0,0,290,1000),Qt::TextWordWrap,m87Note->text()).height()+4);m87Form->addRow(m87Note);
+    auto m87Note=new QLabel("Sem seleção própria, o M87 acompanha o efeito global. Lateral e setinha continuam pelo controle físico.");m87Note->setWordWrap(true);m87Note->setMinimumHeight(m87Note->fontMetrics().boundingRect(QRect(0,0,290,1000),Qt::TextWordWrap,m87Note->text()).height()+4);m87Form->addRow(m87Note);
     advancedLayout->addWidget(m87Options);m87Options->setVisible(m87Enabled);
     auto startup=new QCheckBox("Iniciar ao entrar na sessão");
     QString autostart=QDir::homePath()+"/.config/autostart/led-control.desktop";
@@ -80,108 +94,104 @@ int main(int argc, char **argv) {
         else QFile::remove(autostart);
         if(QFile::exists(autostart)!=enabled) { status->setText("Não foi possível alterar o início automático."); QSignalBlocker block(startup); startup->setChecked(QFile::exists(autostart)); }
     });
-    QProcess process; process.setProcessChannelMode(QProcess::MergedChannels);
-    QTimer timeout; timeout.setSingleShot(true); timeout.setInterval(45000);
-    QObject::connect(&timeout,&QTimer::timeout,[&]{ process.kill(); });
-    QColor pending=current, running=current; int pendingBrightness=brightness->value(), runningBrightness=pendingBrightness;
-    bool queued=false, busy=false;
-    QProcess keyboard; keyboard.setProcessChannelMode(QProcess::MergedChannels);
-    QTimer keyboardTimeout; keyboardTimeout.setSingleShot(true); keyboardTimeout.setInterval(10000);
-    QObject::connect(&keyboardTimeout,&QTimer::timeout,[&]{ keyboard.kill(); });
-    QStringList confirmedNames;
-    bool computerFailed=false;
-    int runningMode=m87Mode->currentIndex(), runningSpeed=m87Speed->value(), runningDirection=m87Direction->currentIndex();
-    bool runningRainbow=m87Rainbow->isChecked();
-    const QString m87Driver=settings.value("m87Driver").toString();
-    const QString m87Connection=settings.value("m87Connection", "auto").toString();
-    auto setStatus=[&](QString message){status->setText(message); statusAction->setText(message); tray.setToolTip("Cores dos LEDs\n"+message);};
-    std::function<void()> launch;
-    auto updatePreview=[&]{ preview->setIcon(swatch(pending)); preview->setText(pending.name().toUpper()+" · "+QString::number(pendingBrightness)+"%"); };
-    std::function<void(QString)> complete;
-    complete=[&](QString keyboardError){
-        busy=false;
-        QStringList listed=confirmedNames;
-        if(m87Enabled && keyboardError.isEmpty()) listed<<"ATTACK SHARK M87 (resposta recebida)";
-        devices->setText(listed.isEmpty()?"Nenhum dispositivo RGB confirmado.":"Dispositivos detectados:\n"+listed.join("\n"));
-        if(computerFailed || !keyboardError.isEmpty()) {
-            QString message=computerFailed?"OpenRGB: falha ao confirmar os LEDs do computador.":"LEDs do computador confirmados.";
-            if(!keyboardError.isEmpty()) message+=" M87: "+keyboardError;
-            setStatus(message);
-            tray.showMessage("Cores dos LEDs",message,QSystemTrayIcon::Warning);
-        } else {
-            if(m87Enabled) {
-                settings.setValue("m87Mode",runningMode);settings.setValue("m87Speed",runningSpeed);
-                settings.setValue("m87Direction",runningDirection);settings.setValue("m87Rainbow",runningRainbow);
-            }
-            current=running; settings.setValue("color",current.name()); settings.setValue("brightness",runningBrightness); settings.sync();
-            tray.setIcon(swatch(QColor(current.red()*runningBrightness/100,current.green()*runningBrightness/100,current.blue()*runningBrightness/100)));
-            setStatus(QString("%1 dispositivos com resposta confirmada; confira as luzes").arg(listed.size()));
-        }
-        if(checkSync) { app.exit(computerFailed || !keyboardError.isEmpty() ? 1 : 0); return; }
-        if(queued) QTimer::singleShot(0,launch);
+    QProcess engine;engine.setProcessChannelMode(QProcess::SeparateChannels);
+    engine.setStandardErrorFile(base+"/effects-engine.log",QIODevice::Append);
+    QTimer engineTimeout;engineTimeout.setSingleShot(true);engineTimeout.setInterval(45000);
+    QColor pending=current;
+    int pendingBrightness=brightness->value();
+    bool engineReady=false,engineBusy=false,shuttingDown=false;
+    qint64 nextId=0;
+    QJsonObject running,queued;
+    QByteArray engineBuffer;
+    auto setStatus=[&](QString message){status->setText(message);statusAction->setText(message);tray.setToolTip("Cores dos LEDs\n"+message);};
+    auto updatePreview=[&]{preview->setIcon(swatch(pending));preview->setText(pending.name().toUpper()+" · "+QString::number(pendingBrightness)+"%");};
+    std::function<void()> launch,startEngine;
+    std::function<void(QJsonObject)> sendCommand;
+    auto fail=[&](QString message){
+        engineTimeout.stop();engineBusy=false;queued=QJsonObject();
+        setStatus("Falha nos efeitos: "+message+". Use Reaplicar.");
+        if(checkSync) app.exit(1);
     };
-    QObject::connect(&keyboard,&QProcess::errorOccurred,[&](QProcess::ProcessError error){
-        if(error==QProcess::FailedToStart) { keyboardTimeout.stop(); complete("não foi possível abrir o controlador Python."); }
-    });
-    QObject::connect(&keyboard,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),[&](int code,QProcess::ExitStatus exit){
-        keyboardTimeout.stop();
-        const auto output=keyboard.readAll();
-        QFile log(base+"/last-m87-run.log"); if(log.open(QIODevice::WriteOnly)) log.write(output);
-        auto result=QJsonDocument::fromJson(output).object();
-        bool acknowledged=result.value("device_acknowledged").toBool() || result.value("device_response_matched").toBool();
-        complete(code==0 && exit==QProcess::NormalExit && acknowledged ? QString() : QString::fromUtf8(output).trimmed().left(500).prepend("falha na comunicação. "));
-    });
+    startEngine=[&]{
+        engineReady=false;engineBuffer.clear();engineTimeout.start();
+        setStatus("Iniciando controle dos LEDs…");
+        QString python=settings.value("rgbPython",base+"/runtime/bin/python").toString();
+        QString script=settings.value("rgbEngine",base+"/src/rgb_engine.py").toString();
+        engine.start(python,{script});
+    };
+    sendCommand=[&](QJsonObject command){
+        if(!engineReady||engineBusy) {queued=command;return;}
+        running=command;engineBusy=true;engineTimeout.start();
+        setStatus("Aplicando efeito em todos os LEDs…");
+        engine.write(QJsonDocument(command).toJson(QJsonDocument::Compact)+"\n");
+    };
     launch=[&]{
-        if(busy || process.state()!=QProcess::NotRunning) { queued=true; return; }
-        busy=true; queued=false; running=pending; runningBrightness=pendingBrightness;
-        runningMode=m87Mode->currentIndex();runningSpeed=m87Speed->value();runningDirection=m87Direction->currentIndex();runningRainbow=m87Rainbow->isChecked();
-        QColor output(running.red()*runningBrightness/100,running.green()*runningBrightness/100,running.blue()*runningBrightness/100);
-        QStringList args{"--noautoconnect"};
-        for(auto name: {"Corsair Vengeance","Gigabyte GeForce","G502","ASUS TUF","Nollie 8CH"})
-            args<<"--device"<<name<<"--mode"<<((QString(name)=="G502"||QString(name)=="ASUS TUF")?"Static":"Direct")<<"--color"<<output.name().mid(1);
-        args<<"--save-profile"<<"Aleph-LastApplied";
-        QFile::remove(QDir::homePath()+"/.config/OpenRGB/profiles/Aleph-LastApplied.json");
-        setStatus("Aplicando cor…");
-        process.start(base+"/vendor/squashfs-root/AppRun",args); timeout.start();
+        QJsonObject keyboard{{"enabled",m87Enabled},{"driver",settings.value("m87Driver").toString()},
+            {"connection",settings.value("m87Connection","auto").toString()},{"independent",m87Independent->isChecked()},
+            {"mode",m87Mode->currentIndex()},{"speed",m87Speed->value()},{"direction",m87Direction->currentIndex()},{"rainbow",m87Rainbow->isChecked()}};
+        QJsonObject command{{"id",++nextId},{"effect",globalEffect->currentData().toString()},{"color",pending.name()},
+            {"brightness",pendingBrightness},{"speed",globalSpeed->value()},{"keyboard",keyboard}};
+        if(engine.state()==QProcess::NotRunning) {queued=command;startEngine();return;}
+        sendCommand(command);
     };
-    QObject::connect(&process,&QProcess::errorOccurred,[&](QProcess::ProcessError error){
-        if(error==QProcess::FailedToStart) { timeout.stop(); computerFailed=true; confirmedNames.clear(); complete(m87Enabled?"não enviado porque o OpenRGB não iniciou.":QString()); }
-    });
-    QObject::connect(&process,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),[&](int code,QProcess::ExitStatus exitStatus){
-        timeout.stop(); QString output=QString::fromUtf8(process.readAll());
-        QFile log(base+"/last-run.log"); if(log.open(QIODevice::WriteOnly)) log.write(output.toUtf8());
-        QStringList names;
-        bool failed=code!=0||exitStatus!=QProcess::NormalExit;
-        QFile profile(QDir::homePath()+"/.config/OpenRGB/profiles/Aleph-LastApplied.json");
-        if(!profile.open(QIODevice::ReadOnly)) failed=true;
-        const auto controllers=QJsonDocument::fromJson(profile.readAll()).object().value("controllers").toArray();
-        const int expectedColor=(running.red()*runningBrightness/100)|((running.green()*runningBrightness/100)<<8)|((running.blue()*runningBrightness/100)<<16);
-        for(auto value:controllers) {
-            auto controller=value.toObject(); names<<controller.value("name").toString();
-            auto modes=controller.value("modes").toArray();
-            int active=controller.value("active_mode").toInt(-1);
-            if(active<0||active>=modes.size()) { failed=true; continue; }
-            auto mode=modes[active].toObject();
-            auto colors=(mode.value("color_mode").toInt()==2?mode.value("colors"):controller.value("colors")).toArray();
-            if(colors.isEmpty()) failed=true;
-            for(auto color:colors) if(color.toInt(-1)!=expectedColor) failed=true;
+    QObject::connect(&engineTimeout,&QTimer::timeout,[&]{engineReady=false;engine.kill();fail("o controle não respondeu no prazo");});
+    QObject::connect(&engine,&QProcess::errorOccurred,[&](QProcess::ProcessError error){if(error==QProcess::FailedToStart) fail("motor RGB não instalado ou indisponível");});
+    QObject::connect(&engine,&QProcess::readyReadStandardOutput,[&]{
+        engineBuffer+=engine.readAllStandardOutput();
+        while(engineBuffer.contains('\n')) {
+            int index=engineBuffer.indexOf('\n');QByteArray line=engineBuffer.left(index);engineBuffer.remove(0,index+1);
+            auto result=QJsonDocument::fromJson(line).object();QString event=result.value("event").toString();
+            if(event=="ready") {
+                engineReady=true;engineTimeout.stop();
+                if(!queued.isEmpty()) {auto command=queued;queued=QJsonObject();sendCommand(command);}
+            } else if(event=="applied" && result.value("id").toInteger()==running.value("id").toInteger()) {
+                engineBusy=false;engineTimeout.stop();
+                current=QColor(running.value("color").toString());
+                settings.setValue("color",current.name());settings.setValue("brightness",running.value("brightness").toInt());
+                settings.setValue("globalEffect",running.value("effect").toString());settings.setValue("globalSpeed",running.value("speed").toInt());
+                auto keyboard=running.value("keyboard").toObject();
+                settings.setValue("m87Independent",keyboard.value("independent").toBool());settings.setValue("m87Mode",keyboard.value("mode").toInt());
+                settings.setValue("m87Speed",keyboard.value("speed").toInt());settings.setValue("m87Direction",keyboard.value("direction").toInt());settings.setValue("m87Rainbow",keyboard.value("rainbow").toBool());settings.sync();
+                tray.setIcon(swatch(current));
+                QStringList names;for(auto name:result.value("devices").toArray()) names<<name.toString();
+                if(keyboard.value("enabled").toBool()) names<<"ATTACK SHARK M87";
+                devices->setText("Controladores atendidos:\n"+names.join("\n"));
+                setStatus(QString("Efeito enviado a %1 controladores. Confira as luzes.").arg(names.size()));
+                if(checkSync) {app.exit(0);return;}
+                if(!queued.isEmpty()) {auto command=queued;queued=QJsonObject();sendCommand(command);}
+            } else if(event=="error"||event=="fatal") {fail(result.value("message").toString());}
         }
-        for(auto expected:{"Gigabyte GeForce RTX 3060 Gaming OC","G502 LIGHTSPEED Wireless Gaming Mouse","ASUS TUF GAMING B550M-PLUS","Nollie 8CH"})
-            if(!names.contains(expected)) failed=true;
-        if(names.count("Corsair Vengeance RGB Pro DDR4")!=2) failed=true;
-        QRegularExpression errors("error|failed|failure|cannot|could not|out of range|not found|wrong number",QRegularExpression::CaseInsensitiveOption);
-        if(errors.match(output).hasMatch()) failed=true;
-        confirmedNames=names; computerFailed=failed;
-        if(!m87Enabled) { complete(QString()); return; }
-        if(!QFileInfo(m87Driver).isFile()) { complete("controlador não instalado; confira m87Driver nas configurações."); return; }
-        setStatus("Aplicando efeito ao M87…");
-        QStringList keyboardArgs{m87Driver, "--color", running.name(), "--brightness", QString::number(runningBrightness), "--connection", m87Connection,
-                                 "--mode",QString::number(runningMode),"--speed",QString::number(runningSpeed),"--direction",QString::number(runningDirection),"--apply"};
-        if(runningRainbow) keyboardArgs<<"--rainbow";
-        keyboard.start("/usr/bin/python3", keyboardArgs);
-        keyboardTimeout.start();
     });
-    auto choose=[&](QColor color){ if(!color.isValid()) return; pending=color; updatePreview(); launch(); };
+    QObject::connect(&engine,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),[&](int,QProcess::ExitStatus){engineReady=false;if(!shuttingDown) fail("motor RGB foi encerrado");});
+
+    QProcess waterQuery,waterControl;
+    QTimer waterTimer;waterTimer.setInterval(2000);
+    bool waterActive=false;
+    std::function<void()> refreshWater;
+    refreshWater=[&]{if(waterQuery.state()==QProcess::NotRunning)waterQuery.start("/usr/bin/systemctl",{"--user","show","rise-mode-display.service","--property=LoadState","--property=ActiveState"});};
+    QObject::connect(&waterQuery,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),[&](int,QProcess::ExitStatus){
+        auto output=waterQuery.readAllStandardOutput();bool installed=output.contains("LoadState=loaded");waterActive=output.contains("ActiveState=active");
+        waterToggle->setEnabled(installed&&waterControl.state()==QProcess::NotRunning);waterToggle->setText(waterActive?"Parar telinha":"Iniciar telinha");
+        QFile file(QDir::homePath()+"/.local/state/rise-mode-aura-ice/last-state.json");QJsonObject snapshot;if(file.open(QIODevice::ReadOnly)) snapshot=QJsonDocument::fromJson(file.readAll()).object();
+        auto timestamp=QDateTime::fromString(snapshot.value("timestamp").toString(),Qt::ISODateWithMs);
+        qint64 age=timestamp.isValid()?timestamp.msecsTo(QDateTime::currentDateTimeUtc()):-1;
+        bool fresh=age>=0&&age<=8000;
+        if(!installed||!waterActive||!fresh) {
+            waterStats->setText(!installed?"Monitor da telinha não instalado.":!waterActive?"Telinha pausada.":"Aguardando dados atuais da telinha…");
+            waterState->setText(!installed?"Instale o monitor Rise Mode para habilitar a telinha.":!waterActive?"Monitor parado. Você pode iniciar por aqui.":"Os dados não foram atualizados nos últimos segundos.");return;
+        }
+        auto metrics=snapshot.value("metrics").toObject();
+        auto metric=[&](QString key,QString unit){auto value=metrics.value(key);return value.isDouble()?QString::number(value.toInt())+unit:QString("—");};
+        waterStats->setText("CPU "+metric("cpu_temperature"," °C")+" · GPU "+metric("gpu_temperature"," °C")+"\nUso CPU "+metric("cpu_usage","%")+" · RAM "+metric("memory_usage","%"));
+        waterState->setText(snapshot.value("status").toString()=="report_written"?"Telinha recebendo dados a cada 2 segundos.":"Falha ao enviar à telinha. Confira o monitor Rise Mode.");
+    });
+    QObject::connect(waterToggle,&QPushButton::clicked,[&]{waterToggle->setEnabled(false);waterControl.start("/usr/bin/systemctl",{"--user",waterActive?"stop":"start","rise-mode-display.service"});});
+    QObject::connect(&waterControl,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),[&](int code,QProcess::ExitStatus){if(code!=0)waterState->setText("Não foi possível alterar a telinha. Tente novamente.");refreshWater();});
+    QObject::connect(&waterTimer,&QTimer::timeout,refreshWater);
+    if(!checkSync) {waterTimer.start();refreshWater();}
+    auto choose=[&](QColor color){if(!color.isValid())return;pending=color;
+        {QSignalBlocker block(globalEffect);if(color==QColor(Qt::black))globalEffect->setCurrentIndex(globalEffect->findData("off"));else if(globalEffect->currentData().toString()=="off")globalEffect->setCurrentIndex(0);}
+        updatePreview();launch();};
     const QList<QPair<QString,QString>> colors={{"Azul","#0000ff"},{"Ciano","#00c8ff"},{"Verde","#00ff00"},{"Amarelo","#ffcc00"},{"Vermelho","#ff0000"},{"Roxo","#8000ff"},{"Branco","#ffffff"},{"Apagar","#000000"}};
     int index=0;
     for(auto preset:colors) {
@@ -198,9 +208,12 @@ int main(int argc, char **argv) {
     QObject::connect(brightness,&QSlider::valueChanged,[&]{debounce.start();}); QObject::connect(&debounce,&QTimer::timeout,launch);
     auto updateEffectControls=[&]{
         int mode=m87Mode->currentIndex();
-        m87Speed->setEnabled(mode>1);m87Rainbow->setEnabled(mode>0);
+        m87Options->setEnabled(m87Independent->isChecked());m87Speed->setEnabled(mode>1);m87Rainbow->setEnabled(mode>0);
         m87Direction->setEnabled(mode==10||mode==11||mode==12||mode==16||mode==18);
     };
+    QObject::connect(globalEffect,qOverload<int>(&QComboBox::currentIndexChanged),[&]{launch();});
+    QObject::connect(globalSpeed,&QSlider::valueChanged,[&]{debounce.start();});
+    QObject::connect(m87Independent,&QCheckBox::toggled,[&]{updateEffectControls();launch();});
     QObject::connect(m87Mode,qOverload<int>(&QComboBox::currentIndexChanged),[&]{updateEffectControls();launch();});
     QObject::connect(m87Speed,qOverload<int>(&QSpinBox::valueChanged),[&]{debounce.start();});
     QObject::connect(m87Direction,qOverload<int>(&QComboBox::currentIndexChanged),[&]{launch();});
@@ -228,23 +241,28 @@ int main(int argc, char **argv) {
         }
         auto screen=QGuiApplication::screenAt(anchor); if(!screen) screen=QGuiApplication::primaryScreen();
         QRect available=screen->availableGeometry();
-        window.adjustSize();
+        window.setMaximumHeight(qMax(100,available.height()-16));
+        window.adjustSize();window.resize(window.width(),qMin(body->sizeHint().height()+2,available.height()-16));
         int x=qBound(available.left()+8,anchor.x()-window.width()/2,available.right()-window.width()-8);
         int y=qMax(available.top()+8,anchor.y()+10);
         y=qMin(y,available.bottom()-window.height()-8);
         window.move(x,y); window.show(); window.raise(); window.activateWindow();
     }; QObject::connect(open,&QAction::triggered,show);
-    auto diagnostic=menu.addAction("Ver diagnóstico"); QObject::connect(diagnostic,&QAction::triggered,[&]{ QDesktopServices::openUrl(QUrl::fromLocalFile(base+"/last-run.log")); });
+    auto diagnostic=menu.addAction("Ver diagnóstico"); QObject::connect(diagnostic,&QAction::triggered,[&]{ QDesktopServices::openUrl(QUrl::fromLocalFile(base+"/effects-engine.log")); });
     menu.addSeparator(); auto quit=menu.addAction("Sair do controle"); QObject::connect(quit,&QAction::triggered,&app,&QApplication::quit);
     tray.setContextMenu(&menu); tray.show();
     QObject::connect(&tray,&QSystemTrayIcon::activated,[&](QSystemTrayIcon::ActivationReason reason){if(reason==QSystemTrayIcon::Trigger) show();});
     QObject::connect(&server,&QLocalServer::newConnection,[&]{auto socket=server.nextPendingConnection(); if(socket){socket->deleteLater();show();}});
     updatePreview();
     if(capture) {
-        details->setChecked(true);window.adjustSize();window.show();
+        details->setChecked(true);window.adjustSize();window.resize(window.width(),qMin(body->sizeHint().height()+2,window.screen()->availableGeometry().height()-16));window.show();
         QTimer::singleShot(200,[&]{window.grab().save(app.arguments().at(captureArg+1));app.quit();});
-    } else QTimer::singleShot(1500,launch);
+    } else QTimer::singleShot(0,launch);
     if(app.arguments().contains("--show")) show();
-    QObject::connect(&app,&QApplication::aboutToQuit,[&]{if(keyboard.state()!=QProcess::NotRunning){keyboard.kill();keyboard.waitForFinished(1000);}if(process.state()!=QProcess::NotRunning){process.terminate();if(!process.waitForFinished(2000)){process.kill();process.waitForFinished(1000);}}});
+    QObject::connect(&app,&QApplication::aboutToQuit,[&]{shuttingDown=true;waterTimer.stop();
+        if(waterQuery.state()!=QProcess::NotRunning){waterQuery.kill();waterQuery.waitForFinished(1000);}
+        if(waterControl.state()!=QProcess::NotRunning){waterControl.kill();waterControl.waitForFinished(1000);}
+        if(engine.state()!=QProcess::NotRunning){engine.closeWriteChannel();engine.terminate();if(!engine.waitForFinished(4000)){engine.kill();engine.waitForFinished(1000);}}
+    });
     return app.exec();
 }
